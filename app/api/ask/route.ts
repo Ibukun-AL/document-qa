@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { chunkPages } from "@/lib/chunk";
+import { complete } from "@/lib/llm";
 import { extractPages, NoTextError, TooLargeError } from "@/lib/pdf";
 import { buildPrompt, UNANSWERABLE } from "@/lib/prompt";
 import { rateLimit } from "@/lib/ratelimit";
@@ -39,14 +39,8 @@ export async function POST(req: NextRequest) {
   }
 
   const chunks = retrieve(chunkPages(pages), question, 4);
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
-    const msg = await client.messages.create({
-      model: "claude-sonnet-5-5",
-      max_tokens: 600,
-      messages: [{ role: "user", content: buildPrompt(question, chunks) }],
-    });
-    const raw = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+    const raw = await complete(buildPrompt(question, chunks));
     const json = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
     const answer = String(json.answer ?? UNANSWERABLE);
     const citations = answer === UNANSWERABLE ? [] : Array.isArray(json.citations) ? json.citations : [];

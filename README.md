@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Document Q&A
 
-## Getting Started
+Personal project by Ibukun Aluko. Upload a PDF (up to 5 MB and 40 pages) or ask about the built-in sample, and get an answer that cites the page it came from.
 
-First, run the development server:
+## How it works
+
+1. **Extract.** Text is pulled from the PDF page by page, so every excerpt keeps its page number.
+2. **Chunk and retrieve.** Pages are split into chunks and ranked against the question with BM25-style keyword scoring. There is no vector database, on purpose: for documents this size it is simpler and easy to explain.
+3. **Answer.** The top excerpts go to an LLM with strict instructions: answer only from the excerpts, copy quotes verbatim, and reply exactly "The document doesn't say." when the answer is not there.
+4. **Fail clearly.** Scanned PDFs, oversized files, malformed files and rate limits each return a specific message instead of a blank or broken answer.
+
+## Run it
 
 ```bash
+cp .env.example .env.local   # add your LLM_API_KEY
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The model call uses any OpenAI-compatible endpoint. The defaults point at Google's Gemini API (free tier, key from Google AI Studio). Change `LLM_BASE_URL` and `LLM_MODEL` to use Groq, OpenRouter or another provider.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Purpose |
+|---|---|
+| `LLM_API_KEY` | Provider key. Server-side only, never sent to the browser. |
+| `LLM_BASE_URL` | OpenAI-compatible base URL. |
+| `LLM_MODEL` | Model name. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Limits
 
-## Learn More
+The public demo allows 5 questions per hour per visitor and caps uploads at 5 MB and 40 pages. The rate limiter is in memory, so it is best-effort across serverless instances. Do not upload anything sensitive: free LLM tiers may use submitted text to improve their products.
 
-To learn more about Next.js, take a look at the following resources:
+## Tests
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm test
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+14 Vitest tests cover chunking, retrieval, the prompt, rate limiting and the provider client.
